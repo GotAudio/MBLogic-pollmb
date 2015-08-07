@@ -19,11 +19,6 @@ I made changes to support the following command line options;
 
 -b y  : Brief mode which will not display header and other information. CSV output more easily manipulated
 
--r n  : Repeat command n times
-
--d n  : delay between reads when -r switch is present
-
--s y  : output only elapsed time and reads per second summary
 
 
 I might have a version that supports ModbusRTU with CRC MBAP packets as well as Omni Modicon mode. 
@@ -70,4 +65,3 @@ This change is released under terms of the GPL license as per Michaels original 
  You should have received a copy of the GNU General Public License
 
  along with pollmb. If not, see <http://www.gnu.org/licenses/>.
- 
