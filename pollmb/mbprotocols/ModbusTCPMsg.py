@@ -111,6 +111,7 @@ This library supports the following functions:
 1	= Read Coils
 2	= Read Discrete Inputs
 3	= Read Holding Registers
+65	= Read Omni Buffer
 4	= Read Input Registers
 5	= Write Single Coil
 6	= Write Single Register
@@ -125,11 +126,11 @@ an exception is found, processing stops there and the code is returned.
 
 Exceptions are defined as followed:
 Exception Code 1 (All functions): Function code is not supported.
-Exception Code 2 (functions 1, 2, 3, 4): Start address not OK or Start address + qty outputs not OK.
+Exception Code 2 (functions 1, 2, 3, 65, 4): Start address not OK or Start address + qty outputs not OK.
 Exception Code 2 (functions 5, 6): Output address not OK.
 Exception Code 2 (functions 15, 16): Start address not OK or start address + qty outputs or registers not OK.
 Exception Code 3 (functions 1, 2): Qty of inputs, or outputs is not between 1 and 0x07D0.
-Exception Code 3 (functions 3, 4): Qty of registers is not between 1 and 0x07D.
+Exception Code 3 (functions 3, 65, 4): Qty of registers is not between 1 and 0x07D.
 Exception Code 3 (function 5): Output value is not 0x0000 or 0xFF00.
 Exception Code 3 (function 6): Register value is not between 0x0000 and 0xFFFF.
 Exception Code 3 (functions 15, 16): Qty of outputs or registers is not between 1 and 0x07B0.
@@ -158,7 +159,7 @@ class MBTCPServerMessages:
 
 		# A dictionary is used to hold the address limits. The dictionary key
 		# is the Modbus function code, and the data is the address limit.
-		self._addrlimits = {1 : maxcoils, 2 : maxdiscretes, 3 : maxholdingreg,
+		self._addrlimits = {1 : maxcoils, 2 : maxdiscretes, 3 : maxholdingreg, 65 : maxholdingreg,
 		4 : maxinputreg, 5 : maxcoils, 6 : maxholdingreg, 15 : maxcoils, 16 : maxholdingreg }
 
 		# A dictionary is used to hold the constants for the protocol addressing range.
@@ -166,7 +167,7 @@ class MBTCPServerMessages:
 		# time without exceeding the protocol limit. Exceeding these limits results in 
 		# a Modbus exception 3.
 		self._protocollimits = {1 : 0x07D0, 2 : 0x07D0, # Max coils that can be read at once.
-					3 : 0x07D, 4 : 0x07D,	# Max registers that can be read at once.
+					65 : 0x07D, 3 : 0x07D, 4 : 0x07D,	# Max registers that can be read at once.
 					5 : 0x0, 6 : 0x0,	# N/A for 5 or 6.
 					15 : 0x07B0, 		# Max coils that can be written at once.
 					16 : 0x07B}		# Max registers that can be written at once.
@@ -193,7 +194,7 @@ class MBTCPServerMessages:
 		# 7b) Addr - Original address. For func 5, 6, 15, 16.
 		# 8) MsgData - Preconstructed message data.
 
-		if (FunctionCode in [1, 2, 3, 4]):
+		if (FunctionCode in [1, 2, 3, 65, 4]):
 			DataLen = len(MsgData)		# Length of data.
 			return struct.pack('>HHHBBB %ds' % DataLen, TransID, 0, DataLen + 3, 
 					UnitID, FunctionCode, DataLen, MsgData)
@@ -271,7 +272,7 @@ class MBTCPServerMessages:
 		MbPDU = Message[10:]
 
 		# Read coils, inputs, or registers..
-		if Function in (1, 2, 3, 4):
+		if Function in (1, 2, 3, 65, 4):
 			
 			# Unpack the rest of the message.
 			# unpack always returns a tuple, so we need to get size this way.
@@ -417,13 +418,19 @@ class MBTCPClientMessages:
 		Addr (integer) = Data address.
 		Qty (integer) = Number of addresses to read or write.
 		MsgData (binary string) = Data in Modbus binary string format. Valid data is required for
-			functions 5, 6, 15, and 16. For 1, 2, 3, and 4, this parameter is optional.
+			functions 5, 6, 15, and 16. For 1, 2, 3, 65, and 4, this parameter is optional.
 		If the function code is not supported, an empty string will be returned. Invalid data
 			will cause an exception to be raised.
 		"""
 
 		# Read coils or registers. MBAP length is fixed at 6.
 		if FunctionCode in (1, 2, 3, 4):
+			return struct.pack('>HHHBBHH', TransID, 0, 6, UnitID, 
+				FunctionCode, Addr, Qty)
+
+		# Read Omni Special Buffer MBAP length is fixed at 6.
+		elif FunctionCode == 65:
+			# Construct message.
 			return struct.pack('>HHHBBHH', TransID, 0, 6, UnitID, 
 				FunctionCode, Addr, Qty)
 
@@ -439,6 +446,13 @@ class MBTCPClientMessages:
 			count = len(MsgData)
 			# MBAP length parameter is size of PDU plus unitid.
 			return struct.pack('>HHHBBHHB %ds' % count, TransID, 0, count + 7, UnitID, 
+				FunctionCode, Addr, Qty, count, MsgData)
+
+		elif FunctionCode == 66:
+			# Construct message.
+			count = len(MsgData)
+			# MBAP length parameter is size of PDU plus unitid.
+			return struct.pack('>HHHBBHHB %ds' % count, TransID, 0, count - 2, UnitID, 
 				FunctionCode, Addr, Qty, count, MsgData)
 
 		# Function code is not supported.
@@ -476,7 +490,7 @@ class MBTCPClientMessages:
 
 		# Now unpack the data portion of the message.
 		# Check if this is a response to a read function.		
-		if (funct in [1, 2, 3, 4]):
+		if (funct in [1, 2, 3, 65, 4]):
 			# Decode the data part of the message.
 			bytes_data, MsgData = struct.unpack('>B %ds' % (len(datapackage) - 1), datapackage)
 			return  (TransID, funct, MsgData)

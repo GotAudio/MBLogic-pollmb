@@ -51,14 +51,20 @@ signal.signal(signal.SIGINT, SigHandler)
 # Get the command line parameter options.
 CmdOpts = mbpollcommon.GetOptions('modbustcp')
 
+BriefOutput = CmdOpts.GetBrief()
+
 host, port, timeout = CmdOpts.GetHost()
 
-print('\nContacting Modbus host at %s port %d timeout %.01f sec.' % (host, port, timeout))
+if not BriefOutput:
+	print('\nContacting Modbus host at %s port %d timeout %.01f sec.' % (host, port, timeout))
 
 try:
 	mbclient = ModbusTCPSimpleClient.ModbusTCPSimpleClient(host, port, timeout)
 except:
-	print('Failed to contact host.')
+	if not BriefOutput:
+		print('Failed to contact host.')
+	else:
+		print('%s, %d, Failed to contact host.' % (host, port))
 	sys.exit(5)
 
 
@@ -66,10 +72,14 @@ except:
 ############################################################
 
 # Get what data to send.
-SendUnitID, SendFunction, SendAddr, SendQty, SendData = CmdOpts.GetMBRequest()
+SendUnitID, SendFunction, CharAddr, SendQty, SendData = CmdOpts.GetMBRequest()
+
+SendAddr = int(CharAddr)
 
 # Preset the transaction ID.
 SendTransID = 0
+
+CharacterOutput = CmdOpts.GetCharacter()
 
 
 # If this is a write function, convert the data to binary packed string format.
@@ -80,16 +90,18 @@ try:
 		if sendval in (0, 1):
 			BinData = ModbusDataStrLib.coilvalue(int(SendData))
 		else:
-			print('Invalid data for Modbus function %d.' % SendFunction)
+			print('Invalid data for Modbus Function %d.' % SendFunction)
 			sys.exit(4)
 	elif (SendFunction == 15):
 		BinData = ModbusDataStrLib.bininversor(SendData)
-	elif SendFunction in  (6, 16):
+	elif SendFunction in  (6, 16, 66):
 		BinData = ModbusDataStrLib.hex2bin(SendData)
+	elif SendFunction == 65:
+		BinData = '\x00\x00'
 	else:
 		BinData = '\x00\x00'
 except:
-	print('Invalid data for Modbus function %d.' % SendFunction)
+	print('Invalid data for modbus function %d.' % SendFunction)
 	sys.exit(4)
 
 # Construct the Modbus request message.
@@ -97,8 +109,9 @@ try:
 	RequestMsg = mbclient.MakeRawRequest(SendTransID, SendUnitID, SendFunction, SendAddr, SendQty, MsgData = BinData)
 except:
 	RequestMsg = ''
+
 if (RequestMsg == ''):
-	print('Invalid Modbus parameters.')
+	print('Invalid ModbuS parameters.')
 	sys.exit(6)
 
 ############################################################
@@ -115,7 +128,8 @@ StartTime = time.time()
 
 # Tell the user what the program is going to do.
 IntroStr = 'Sending Modbus function: %d, addr: %d, qty: %d, data: %s for %d polls at %d msec'
-print(IntroStr % (SendFunction, SendAddr, SendQty, SendData, PollRepeats, int(PollDelay * 1000.0)))
+if not BriefOutput:
+	print(IntroStr % (SendFunction, SendAddr, SendQty, SendData, PollRepeats, int(PollDelay * 1000.0)))
 
 # Poll the server.
 for i in xrange(PollRepeats):
@@ -124,34 +138,51 @@ for i in xrange(PollRepeats):
 	try:
 		mbclient.SendRawRequest(RequestMsg)
 	except:
-		print('Error sending request to host.')
+		if not BriefOutput:
+			print('Error sending request to host.')
+		else:
+			print('%s, %d, Error sending request to host.' % (host, port))
 		sys.exit(5)
 
 	# Get the reply.
 	try:
 		Recv_TransID, Recv_Function, Recv_Data = mbclient.ReceiveResponse()
 	except:
-		print('Error receiving data from host.')
+		if not BriefOutput:
+			print('Error receiving data from host.')
+		else:
+			print('%s, %d, Error receiving data from host.' % (host, port))
 		sys.exit(5)
 
 	# Decode the reply.
 	try:
-		if Recv_Function in (1, 2):
+		if CharacterOutput:
+			hexdata = str(Recv_Data)
+		elif Recv_Function in (1, 2):
 			hexdata = ModbusDataStrLib.inversorbin(Recv_Data)
 		elif Recv_Function in (3, 4):
 			hexdata = ModbusDataStrLib.bin2hex(Recv_Data)
 		elif  Recv_Function in (5, 6, 15, 16):
 			hexdata = ModbusDataStrLib.bin2hex(Recv_Data)
+		elif Recv_Function == 65:
+			hexdata = ModbusDataStrLib.bin2hex(Recv_Data)
+#[104:106] + '.' + ModbusDataStrLib.bin2hex(Recv_Data)[106:108] + '.' + ModbusDataStrLib.bin2hex(Recv_Data)[108:110] + '.' + ModbusDataStrLib.bin2hex(Recv_Data)[110:112]
 		elif (Recv_Function > 127):
 			hexdata = str(Recv_Data)
 		else:
 			hexdata = 'No Data'
 	except:
-		print('Bad data format received from host for function %d' % Recv_Function)
+		if not BriefOutput:
+			print('Bad data format received from host for function %d' % Recv_Function)
+		else:
+			print('%s, %d, Bad data format received from host for function %d' % (host, port, Recv_Function))
 		sys.exit(5)
 
 	if not PollSilently:
-		print('%d: Reply was: function: %d, data: %s' % (i + 1, Recv_Function, hexdata))
+		if not BriefOutput:
+			print('%d: Reply was: function: %d, data: %s' % (i + 1, Recv_Function, hexdata))
+		else:
+			print('%s, %d, %s' % (host, SendAddr, hexdata))
 
 
 	# Delay until the next scheduled polling time.

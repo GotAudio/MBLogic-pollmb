@@ -90,7 +90,7 @@ class ModbusRestSimpleClient(ModbusRestMsg.MBRestClientMessages):
 
 		# Send the message.
 		conn = httplib.HTTPConnection(self._urlhost, self._port)
-		if FunctionCode in (1, 2, 3, 4):
+		if FunctionCode in (1, 2, 3, 65, 4):
 			conn.request('GET', '/%s/%s' % (self._urlprefix, RequestURL))
 		elif FunctionCode in (5, 6, 15, 16):
 			Postheaders = {'modbusrest': RequestMsg}

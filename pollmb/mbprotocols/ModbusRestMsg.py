@@ -95,6 +95,7 @@ This library supports the following functions:
 1	= Read Coils
 2	= Read Discrete Inputs
 3	= Read Holding Registers
+65	= Read Omni Buffer
 4	= Read Input Registers
 5	= Write Single Coil
 6	= Write Single Register
@@ -109,11 +110,11 @@ an exception is found, processing stops there and the code is returned.
 
 Exceptions are defined as followed:
 Exception Code 1 (All functions): Function code is not supported.
-Exception Code 2 (functions 1, 2, 3, 4): Start address not OK or Start address + qty outputs not OK.
+Exception Code 2 (functions 1, 2, 3, 65, 4): Start address not OK or Start address + qty outputs not OK.
 Exception Code 2 (functions 5, 6): Output address not OK.
 Exception Code 2 (functions 15, 16): Start address not OK or start address + qty outputs or registers not OK.
 Exception Code 3 (functions 1, 2): Qty of inputs, or outputs is not between 1 and 0x07D0.
-Exception Code 3 (functions 3, 4): Qty of registers is not between 1 and 0x07D.
+Exception Code 3 (functions 3, 65, 4): Qty of registers is not between 1 and 0x07D.
 Exception Code 3 (function 5): Output value is not 0x0000 or 0xFF00.
 Exception Code 3 (function 6): Register value is not between 0x0000 and 0xFFFF.
 Exception Code 3 (functions 15, 16): Qty of outputs or registers is not between 1 and 0x07B0.
@@ -255,7 +256,7 @@ class MBRestServerMessages:
 	def __init__(self, maxcoils, maxdiscretes, maxholdingreg, maxinputreg):
 		# A dictionary is used to hold the address limits. The dictionary key
 		# is the Modbus function code, and the data is the address limit.
-		self._addrlimits = {1 : maxcoils, 2 : maxdiscretes, 3 : maxholdingreg,
+		self._addrlimits = {1 : maxcoils, 2 : maxdiscretes, 3 : maxholdingreg, 65 : maxholdingreg,
 		4 : maxinputreg, 5 : maxcoils, 6 : maxholdingreg, 15 : maxcoils, 16 : maxholdingreg }
 
 		# A dictionary is used to hold the constants for the protocol addressing range.
@@ -263,7 +264,7 @@ class MBRestServerMessages:
 		# time without exceeding the protocol limit. Exceeding these limits results in 
 		# a Modbus exception 3.
 		self._protocollimits = {1 : 0x07D0, 2 : 0x07D0, # Max coils that can be read at once.
-					3 : 0x07D, 4 : 0x07D,	# Max registers that can be read at once.
+					3 : 0x07D, 65 : 0x07D, 4 : 0x07D,	# Max registers that can be read at once.
 					5 : 0x0, 6 : 0x0,	# N/A for 5 or 6.
 					15 : 0x07B0, 		# Max coils that can be written at once.
 					16 : 0x07B}		# Max registers that can be written at once.
@@ -404,7 +405,7 @@ class MBRestServerMessages:
 
 		# At this point, the parameters have all be checked to see if they can be used.
 		# Now validate the data according to the requirements of each function.
-		if FunctionCode in (1, 2, 3, 4):
+		if FunctionCode in (1, 2, 3, 65, 4):
 			exceptioncode = 0	# Default exception code.
 			MsgData = ''		# No XML data expected.
 
@@ -618,7 +619,7 @@ class MBRestClientMessages:
 	# request (when applicable). 
 	def MBRequest(self, TransID, UnitID, FunctionCode, Addr, Qty, MsgData = 'none'):
 
-		if FunctionCode in (1, 2, 3, 4):
+		if FunctionCode in (1, 2, 3, 65, 4):
 			return '%d/%d?qty=%d&tid=%d&uid=%d' % (FunctionCode, Addr, Qty, TransID, UnitID), ''
 		elif FunctionCode in (5, 6, 15, 16):
 			return '%d/%d?qty=%d&tid=%d&uid=%d' % (FunctionCode, Addr, Qty, TransID, UnitID), \

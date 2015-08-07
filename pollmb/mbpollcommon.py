@@ -34,7 +34,7 @@ _HelpIntroMBStr = """
 This program provides a simple command line ModbusTCP client. It can be 
 used to read or write to ModbusTCP servers. It can also be used to measure 
 the performance of ModbusTCP servers by repeated polling them and measuring 
-the elaspsed time. It supports Modbus functions 1, 2, 3, 4, 5, 6, 15, and 16.
+the elaspsed time. It supports Modbus functions 1, 2, 3, 65, 4, 5, 6, 15, and 16.
 
 It has a variety of command line parameters. Any parameters which are not 
 specified will use their default values. These include:
@@ -50,7 +50,7 @@ This program provides a simple command line MB-REST web service client.
 It can be used to read or write to MB-REST http web servers. It can also 
 be used to measure the performance of MB-REST http servers by repeated 
 polling them and measuring the elaspsed time. It supports Modbus functions 
-1, 2, 3, 4, 5, 6, 15, and 16.
+1, 2, 3, 65, 4, 5, 6, 15, and 16.
 
 It has a variety of command line parameters. Any parameters which are not 
 specified will use their default values. These include:
@@ -70,15 +70,17 @@ Modbus parameters:
 -a Address (Modbus memory). The default is 0.
 -q Quantity of addresses. The default is 1.
 -u Unit ID. The default is 1
+-c Output result as character string ASCII Y or y.
 
 Polling parameters:
 -r Repeats. Number of times to perform the poll. The default is 1.
 -y Delay time between repeats in milliseconds. The default is 1.
 -d Data to send to the server. Default is 0000.
 -s Silent mode. 'Y' or 'y' will suppress displaying data. Default is 'no'.
+-b brief Y or y will output only IP, Addr, Data 
 
 Data:
-For functions 1, 2, 3, or 4, any data specified is ignored. For functions 
+For functions 1, 2, 3, 65, or 4, any data specified is ignored. For functions 
 5, 6, 15, or 16, data must be specified. For function 5 (write single coil),
 data must be either 0 or 1. For function 15 (write multiple coils), data must 
 be 0 and 1 characters, in multiples of 8 characters. E.g. 00111010.
@@ -168,17 +170,19 @@ class GetOptions:
 		self._timeout = 60.0
 		self._unitID = 1
 		self._function = 1
-		self._addr = 0
+		self._addr = '0' #0
 		self._qty = 1
 		self._repeats = 1
 		self._delay = 0.001
 		self._data = '0000'
 		self._silent = False
+		self._character = False
+		self._brief = False
 
 		# Read the command line options.
 		try:
-			opts, args = getopt.getopt(sys.argv[1:], 'p: h: t: f: a: q: u: r: y: d: s:', 
-				['port', 'host', 'timeout', 'func', 'addr', 'qty', 'uid', 'repeat', 'delay', 'data', 'silent'])
+			opts, args = getopt.getopt(sys.argv[1:], 'p: h: t: f: a: q: u: r: y: d: s: c: b:', 
+				['port', 'host', 'timeout', 'func', 'addr', 'qty', 'uid', 'repeat', 'delay', 'data', 'silent', 'character', 'brief'])
 		except:
 			print('Unrecognised options.')
 			sys.exit(2)
@@ -200,6 +204,9 @@ class GetOptions:
 			elif o == '-h':
 				self._host = a
 
+			elif o == '-c':
+				self._character = (a in ('y', 'Y'))
+
 			elif o == '-t':
 				try:
 					self._timeout = float(a)
@@ -220,20 +227,23 @@ class GetOptions:
 					sys.exit(2)
 			elif o == '-a':
 				try:
-					self._addr = int(a)
+# KAS Allow address list on command line
+#					self._addr = int(a)
+					self._addr = a
 				except:
 					print('Invalid Modbus address.')
 					sys.exit(2)
-				if ((self._addr < 0) or (self._addr > 65536)):
-					print('Modbus address is out of range.')
-					sys.exit(2)
+# KAS Allow address list on command line
+#				if ((self._addr < 0) or (self._addr > 65536)):
+#					print('Modbus address is out of range.')
+#					sys.exit(2)
 			elif o == '-q':
 				try:
 					self._qty = int(a)
 				except:
 					print('Invalid Modbus quantity.')
 					sys.exit(2)
-				if ((self._qty < 0) or (self._qty > 65536)):
+				if ((self._qty < -1) or (self._qty > 65536)):
 					print('Modbus quantity is out of range.')
 					sys.exit(2)
 			elif o == '-u':
@@ -259,6 +269,8 @@ class GetOptions:
 					sys.exit(2)
 			elif o == '-d':
 				self._data = a
+			elif o == '-b':
+				self._brief = (a in ('Y', 'y'))
 			elif o == '-s':
 				self._silent = (a in ('y', 'Y'))
 			else:
@@ -285,6 +297,12 @@ class GetOptions:
 	# read or write results).
 	def GetIsSilent(self):
 		return self._silent
+
+	def GetCharacter(self):
+		return self._character
+
+	def GetBrief(self):
+		return self._brief
 
 ############################################################
 
