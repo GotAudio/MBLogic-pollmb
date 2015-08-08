@@ -20,9 +20,26 @@ I made changes to support the following command line options;
 -b y  : Brief mode which will not display header and other information. CSV output more easily manipulated
 
 
+Examples (python must be installed in your path. I have Python 2.7);
 
-I might have a version that supports ModbusRTU with CRC MBAP packets as well as Omni Modicon mode. 
-Let me know if you need that and I will try to dig it up.
+C:\...\pollmb>pollmb -h 127.0.0.1 -f 3 -p 1502 -a 4114 -q 1 -c y -u 1 -b y -r 3
+
+	-h Host:	127.0.0.1
+	-f Function:	3 (read holding register)
+	-p Port:	1502
+	-a Address:4114
+	-q Length:	1
+	-c Output:	Convert to character (ASCII)
+	-u UnitId:	1
+	-b Brief:	Output CSV, do not show header
+
+127.0.0.1, 4114, ABCDEFGH
+
+C:\..\pollmb>pollmb -h 127.0.0.1 -f 3 -p 1502 -a 4114 -q 1 -c y -u 1 -b y -r 1000 -s y
+
+Elapsed time was 1.021000 seconds.
+A total of 1000 Registers were sent at a rate of 979.431789 Registers per second.
+
 
 This change is released under terms of the GPL license as per Michaels original code;
 
